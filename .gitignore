@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Environment
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Django specific
+db.sqlite3
+*.log
+*.pot
+*.pyc
+*.mo
+*.swp
+*.swo
+
+# VSCode
+.vscode/
+
+# Migrations (optional – ignore if you regenerate often)
+# **/migrations/
+# !**/migrations/__init__.py
+
+# Virtual environment
+nutrition/

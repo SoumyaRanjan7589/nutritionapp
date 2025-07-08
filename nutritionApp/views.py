@@ -2,11 +2,21 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import CustomUser, OTP
-from .serializers import SignupSerializer, OTPVerifySerializer, LoginSerializer, UserSerializer, CustomTokenSerializer
+from .serializers import SignupSerializer, OTPVerifySerializer, LoginSerializer, UserSerializer, CustomTokenSerializer,FoodImageUploadSerializer
 import random
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.views import TokenObtainPairView
 import requests
+import os
+from google import genai
+from dotenv import load_dotenv
+from rest_framework.parsers import MultiPartParser
+from google.genai import types
+import re
+import json
+api_user_token = os.getenv("LOGMEAL_API_TOKEN")
+api_key=os.getenv("GEMINE_API_KEY")
+client = genai.Client(api_key=api_key)
 class SignupView(APIView):
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
@@ -43,91 +53,99 @@ class CustomLoginView(TokenObtainPairView):
 
 
 class MultiFoodDetectionAPIView(APIView):
-    def post(self, request):
-        image_file = request.FILES.get('image')
-        # api_user_token = request.POST.get('api_user_token')
-        api_user_token='eb2e800de7a802a5a284b4f6e1d8fa4ce243ca28'
-
-        if not image_file or not api_user_token:
-            return Response({'error': 'Missing image'}, status=status.HTTP_400_BAD_REQUEST)
-
-        headers = {
-            'Authorization': f'Bearer {api_user_token}'
-        }
-
-        api_url = 'https://api.logmeal.com/v2'
-        endpoint = '/image/segmentation/complete'
-
-        try:
-            response = requests.post(
-                api_url + endpoint,
-                files={'image': image_file},
-                headers=headers
-            )
-
-            if response.status_code != 200:
-                return Response({'error': 'Failed to contact LogMeal API', 'details': response.text},
-                                status=status.HTTP_502_BAD_GATEWAY)
-
-            food_groups = response.json().get('foodFamily', [])
-            return Response({'food_groups': food_groups}, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        
-        
-class ProteinDetectionAPIView(APIView):
-    # 🔐 Hardcoded API Token (or load securely from env)
-    API_USER_TOKEN = 'eb2e800de7a802a5a284b4f6e1d8fa4ce243ca28'
+    parser_classes = [MultiPartParser]  # To handle file upload
 
     def post(self, request):
         image_file = request.FILES.get('image')
 
         if not image_file:
             return Response({'error': 'Missing image file'}, status=status.HTTP_400_BAD_REQUEST)
-
-        headers = {
-            'Authorization': f'Bearer {self.API_USER_TOKEN}'
-        }
-
-        api_url = 'https://api.logmeal.com/v2'
-
         try:
-            # Step 1: Detect food dish to get imageId
-            detect_endpoint = '/image/segmentation/complete'
-            detect_response = requests.post(
-                api_url + detect_endpoint,
-                files={'image': image_file},
-                headers=headers
+            image_bytes = image_file.read()
+
+            prompt = (
+                "List the different food items visible in this image. "
+                "Return them as a comma-separated list only. No explanation."
             )
 
-            if detect_response.status_code != 200:
-                return Response({'error': 'Failed at image detection step', 'details': detect_response.text},
-                                status=status.HTTP_502_BAD_GATEWAY)
-
-            image_id = detect_response.json().get('imageId')
-            print("imageid= ",image_id)
-            if not image_id:
-                return Response({'error': 'imageId not found in response'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-            # Step 2: Fetch nutritional info (including protein)
-            nutrition_endpoint = '/nutrition/recipe/nutritionalInfo'
-            nutrition_response = requests.post(
-                api_url + nutrition_endpoint,
-                json={'imageId': image_id},
-                headers=headers
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type='image/jpeg',
+                    ),
+                    prompt
+                ]
             )
-            print("nutrition_response= ",nutrition_response)
-            if nutrition_response.status_code != 200:
-                return Response({'error': 'Failed at nutrition info step', 'details': nutrition_response.text},
-                                status=status.HTTP_502_BAD_GATEWAY)
 
-            nutrition_data = nutrition_response.json()
-            protein = nutrition_data['nutritional_info']['totalNutrients']['PROCNT']['quantity']
-            unit = nutrition_data['nutritional_info']['totalNutrients']['PROCNT']['unit']
+            raw_text = response.text
+            food_names = [item.strip() for item in raw_text.split(',') if item.strip()]
 
-            return Response({'protein_info': f'{protein} {unit}'}, status=status.HTTP_200_OK)
+            return Response({'food_groups': food_names}, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        
+        
+        
+def parse_nutrition_json_from_raw_text(raw_text: str) -> dict:
+    """
+    Extract JSON object from Markdown-style response and return clean dict.
+    """
+    # Match the JSON block between ```json ... ```
+    match = re.search(r'```json\n(.+?)\n```', raw_text, re.DOTALL)
+    if match:
+        json_str = match.group(1)
+        try:
+            data = json.loads(json_str)
+            return {"nutrition_data": data}
+        except json.JSONDecodeError:
+            return {"error": "Failed to decode JSON."}
+    else:
+        return {"error": "No JSON block found in response."}
+
+
+class ExtractAllInfoAPIView(APIView):
+    parser_classes = [MultiPartParser]  # To handle file upload
+
+    def post(self, request):
+        image_file = request.FILES.get('image')
+
+        if not image_file:
+            return Response({'error': 'Missing image file'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            image_bytes = image_file.read()
+
+            prompt = (
+            "Analyze the image and return a JSON array of foods with nutritional values based on the actual quantity shown in the image. "
+            "For each item, return: food_name, estimated_quantity, calories, protein_g, fats_g, carbs_g, vitamin_k, vitamin_c, fiber_g. "
+            "Format the response as raw JSON inside triple backticks (```json ... ```)."
+            )
+
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type='image/jpeg'),
+                    prompt
+                ]
+            )
+
+            parsed_data = parse_nutrition_json_from_raw_text(response.text)
+    
+            return Response(parsed_data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)        
+
+
+def clean_gemini_raw_json(raw_text: str) -> dict:
+    """
+    Extract and parse a JSON object from a Markdown-style code block returned by Gemini.
+    """
+    try:
+        # Remove code block markers and extract the inner JSON
+        cleaned = re.sub(r'^```json|```$', '', raw_text.strip(), flags=re.MULTILINE).strip()
+        return json.loads(cleaned)
+    except Exception as e:
+        return {"error": "Failed to parse JSON", "details": str(e), "raw_text": raw_text}
+    

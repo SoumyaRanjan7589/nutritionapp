@@ -26,3 +26,6 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token['phone'] = user.phone
         return token
+    
+class FoodImageUploadSerializer(serializers.Serializer):
+    image = serializers.ImageField(required=True)

@@ -5,3 +5,4 @@ djangorestframework-simplejwt
 twilio
 djangorestframework-simplejwt
 google-generativeai
+pymongo

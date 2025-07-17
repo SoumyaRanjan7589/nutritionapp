@@ -14,9 +14,43 @@ from rest_framework.parsers import MultiPartParser
 from google.genai import types
 import re
 import json
+from pymongo import MongoClient
+from bson.binary import Binary
+import urllib.parse
 api_user_token = os.getenv("LOGMEAL_API_TOKEN")
 api_key=os.getenv("GEMINE_API_KEY")
 client = genai.Client(api_key=api_key)
+
+
+def store_image_and_response_to_mongo(image_bytes, response_text):
+    try:
+        # MongoDB credentials
+        username = "soumya-123"
+        password = "Soumya"
+        encoded_username = urllib.parse.quote_plus(username)
+        encoded_password = urllib.parse.quote_plus(password)
+        connection_string=f"mongodb+srv://soumya-123:{encoded_password}@cluster0.zaytioc.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+        # connection_string=f"mongodb+srv://soumya-123:{encoded_password}@cluster0.zaytioc.mongodb.net/"
+        # Connect to MongoDB
+        client = MongoClient(connection_string)
+        db = client["Nutrition"]
+        collection = db["img-store"]
+
+        # Create document
+        document = {
+            "image": Binary(image_bytes),
+            "response": response_text
+        }
+
+        # Insert document
+        collection.insert_one(document)
+
+    except Exception as e:
+        # Raise to be handled by the calling view
+        raise RuntimeError(f"MongoDB insert error: {e}")
+
+
+
 class SignupView(APIView):
     def post(self, request):
         serializer = SignupSerializer(data=request.data)
@@ -81,6 +115,10 @@ class MultiFoodDetectionAPIView(APIView):
 
             raw_text = response.text
             food_names = [item.strip() for item in raw_text.split(',') if item.strip()]
+            store_image_and_response_to_mongo(
+                image_bytes=image_bytes,
+                response_text=food_names
+            )
 
             return Response({'food_groups': food_names}, status=status.HTTP_200_OK)
 
@@ -129,9 +167,12 @@ class ExtractAllInfoAPIView(APIView):
                     prompt
                 ]
             )
-
+           
             parsed_data = parse_nutrition_json_from_raw_text(response.text)
-    
+            store_image_and_response_to_mongo(
+                image_bytes=image_bytes,
+                response_text=response.text
+            )
             return Response(parsed_data, status=status.HTTP_200_OK)
 
         except Exception as e:

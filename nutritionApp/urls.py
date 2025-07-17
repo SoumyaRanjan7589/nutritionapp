@@ -4,7 +4,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from .views import SignupView, OTPVerifyView, CustomLoginView,MultiFoodDetectionAPIView,ExtractAllInfoAPIView
 
 urlpatterns = [
-    path('admin/', admin.site.urls,name='admin'),
+    path('admin/', admin.site.urls),
     path('signup/', SignupView.as_view(),name='signup'),
     path('verify-otp/', OTPVerifyView.as_view(),name='verify_otp'),
     path('login/', CustomLoginView.as_view(),name='login'),

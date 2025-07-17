@@ -5,7 +5,6 @@ __pycache__/
 *.db
 *.jpeg
 # Environment variables
-.env
 
 # Virtual environment
 nutrition

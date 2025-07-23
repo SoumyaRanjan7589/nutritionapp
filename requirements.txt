@@ -3,7 +3,7 @@ djangorestframework>=3.14
 python-dotenv
 djangorestframework-simplejwt
 twilio
-djangorestframework-simplejwt
 google-generativeai
 pymongo
 google-genai
+gunicorn

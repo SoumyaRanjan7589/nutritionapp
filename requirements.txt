@@ -6,3 +6,4 @@ twilio
 djangorestframework-simplejwt
 google-generativeai
 pymongo
+google-genai

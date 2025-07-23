@@ -8,7 +8,7 @@ __pycache__/
 
 # Virtual environment
 nutrition
-
+myenv
 # VSCode or IDE specific
 .vscode/
 .idea/

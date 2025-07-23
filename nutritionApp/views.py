@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser
 from .models import CustomUser, OTP
 from .serializers import SignupSerializer, OTPVerifySerializer, LoginSerializer, UserSerializer, CustomTokenSerializer,FoodImageUploadSerializer
 import random
@@ -9,9 +10,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 import requests
 import os
 from google import genai
-from dotenv import load_dotenv
-from rest_framework.parsers import MultiPartParser
 from google.genai import types
+from dotenv import load_dotenv
 import re
 import json
 from pymongo import MongoClient
@@ -19,7 +19,7 @@ from bson.binary import Binary
 import urllib.parse
 api_user_token = os.getenv("LOGMEAL_API_TOKEN")
 api_key=os.getenv("GEMINE_API_KEY")
-client = genai.Client(api_key=api_key)
+client =  genai.Client(api_key=api_key)
 
 
 def store_image_and_response_to_mongo(image_bytes, response_text):

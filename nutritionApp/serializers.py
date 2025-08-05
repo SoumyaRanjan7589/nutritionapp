@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CustomUser, OTP
+from .models import CustomUser, OTP,MobileOTP
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -29,3 +29,11 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
     
 class FoodImageUploadSerializer(serializers.Serializer):
     image = serializers.ImageField(required=True)
+
+
+class MobileNumberSerializer(serializers.Serializer):
+    mobile_number = serializers.CharField(max_length=10)
+
+class OTPVerifySerializer(serializers.Serializer):
+    mobile_number = serializers.CharField(max_length=10)
+    otp = serializers.CharField(max_length=6)

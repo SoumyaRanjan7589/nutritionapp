@@ -25,7 +25,7 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'fallback-key')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG =os.getenv('DEBUG')=='False'
 
-ALLOWED_HOSTS = ['nuitro.thedatageek.in']
+ALLOWED_HOSTS = ['nuitro.thedatageek.in','www.nuitro.thedatageek.in']
 
 
 # Application definition
